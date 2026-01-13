@@ -1,0 +1,185 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Recordings - Jitsi Control{% endblock %}
+{% block page_title %}Recordings{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="d-flex gap-4" style="flex-wrap: wrap; align-items: flex-end;">
+            <div class="form-group mb-0" style="min-width: 150px;">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-control">
+                    <option value="">All Status</option>
+                    <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="recording" {% if request.GET.status == 'recording' %}selected{% endif %}>Recording</option>
+                    <option value="processing" {% if request.GET.status == 'processing' %}selected{% endif %}>Processing</option>
+                    <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>Completed</option>
+                    <option value="failed" {% if request.GET.status == 'failed' %}selected{% endif %}>Failed</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+            <a href="{% url 'dashboard:recordings' %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Clear
+            </a>
+        </form>
+    </div>
+</div>
+
+<!-- Recordings List -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-circle-dot"></i> All Recordings
+            {% if page_obj %}<small style="color: var(--text-muted);">({{ page_obj.paginator.count }} total)</small>{% endif %}
+        </h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Conference</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Size</th>
+                    <th>Duration</th>
+                    <th>Started</th>
+                    <th>Ended</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in recordings %}
+                <tr>
+                    <td>
+                        <a href="{% url 'dashboard:conference_detail' rec.conference.pk %}">
+                            {{ rec.conference.display_name|default:rec.conference.room_name|truncatechars:30 }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if rec.recording_type == 'file' %}
+                            <span class="badge badge-info">File</span>
+                        {% elif rec.recording_type == 'stream' %}
+                            <span class="badge badge-warning">Stream</span>
+                        {% else %}
+                            <span class="badge badge-info">{{ rec.get_recording_type_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if rec.status == 'completed' %}
+                            <span class="badge badge-success">Completed</span>
+                        {% elif rec.status == 'recording' %}
+                            <span class="badge badge-warning">Recording</span>
+                        {% elif rec.status == 'failed' %}
+                            <span class="badge badge-danger">Failed</span>
+                        {% else %}
+                            <span class="badge badge-info">{{ rec.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ rec.file_size_mb|floatformat:1 }} MB</td>
+                    <td>
+                        {% if rec.duration_seconds %}
+                            {{ rec.duration_seconds|floatformat:0 }}s
+                        {% else %}
+                            --
+                        {% endif %}
+                    </td>
+                    <td>{{ rec.started_at|date:"M d, H:i"|default:"--" }}</td>
+                    <td>{{ rec.ended_at|date:"H:i"|default:"--" }}</td>
+                    <td>
+                        {% if rec.status == 'completed' and rec.file_path %}
+                            <button class="btn btn-sm btn-primary" title="Download">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        {% endif %}
+                        {% if rec.status == 'recording' %}
+                            <button class="btn btn-sm btn-danger" onclick="stopRecording()" title="Stop">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="fas fa-video"></i>
+                            <p>No recordings found</p>
+                            <small style="color: var(--text-muted);">Recordings will appear here when you record a meeting.</small>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if page_obj and page_obj.has_other_pages %}
+    <div class="card-body" style="border-top: 1px solid var(--border-color);">
+        <div class="d-flex justify-between align-center">
+            <div>
+                Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+            </div>
+            <div class="d-flex gap-2">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-secondary">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-sm btn-secondary">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if recordings %}
+<!-- Recording Info Card -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-info-circle"></i> Recording Info</h3>
+    </div>
+    <div class="card-body">
+        <p style="color: var(--text-secondary); margin: 0;">
+            Recordings are managed by Jibri (Jitsi Broadcasting Infrastructure). 
+            To start a recording, join a meeting and use the in-meeting controls, 
+            or use the API endpoint <code>/api/recording/start/</code>.
+        </p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function stopRecording() {
+    if (!confirm('Are you sure you want to stop the recording?')) return;
+    
+    try {
+        const response = await fetch('{% url "dashboard:api_recording_stop" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        const data = await response.json();
+        if (data.success) {
+            alert('Recording stopped');
+            location.reload();
+        } else {
+            alert('Failed to stop: ' + (data.error || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

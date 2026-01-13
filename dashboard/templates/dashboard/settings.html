@@ -1,0 +1,210 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Settings - Jitsi Control{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <!-- Dashboard Settings -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-cog"></i> Dashboard Settings</h3>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label class="form-label">Refresh Interval (seconds)</label>
+                    <input type="number" name="refresh_interval" class="form-control" 
+                           value="{{ settings.refresh_interval_seconds }}" min="1" max="60">
+                    <small style="color: var(--text-muted);">How often to refresh statistics</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">JWT Token Expiry (hours)</label>
+                    <input type="number" name="jwt_expiry" class="form-control" 
+                           value="{{ settings.default_jwt_expiry_hours }}" min="1" max="720">
+                    <small style="color: var(--text-muted);">Default token validity for meetings</small>
+                </div>
+                
+                <div class="form-group">
+                    <div class="form-check">
+                        <input type="checkbox" name="dark_mode" id="darkMode" class="form-check-input"
+                               {% if settings.dark_mode %}checked{% endif %}>
+                        <label for="darkMode">Dark Mode Default</label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="form-check">
+                        <input type="checkbox" name="show_graphs" id="showGraphs" class="form-check-input"
+                               {% if settings.show_bandwidth_graphs %}checked{% endif %}>
+                        <label for="showGraphs">Show Bandwidth Graphs</label>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Settings
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Jitsi Servers -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-server"></i> Jitsi Servers</h3>
+            <a href="{% url 'admin:dashboard_jitsiserver_add' %}" target="_blank" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus"></i> Add Server
+            </a>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>URL</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for server in servers %}
+                    <tr>
+                        <td>
+                            <strong>{{ server.name }}</strong>
+                            {% if server.is_primary %}
+                                <span class="badge badge-info" style="margin-left: 8px;">Primary</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size: 12px; color: var(--text-muted);">
+                            {{ server.base_url }}
+                        </td>
+                        <td>
+                            {% if server.is_active %}
+                                <span class="badge badge-success">Active</span>
+                            {% else %}
+                                <span class="badge badge-danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'admin:dashboard_jitsiserver_change' server.pk %}" 
+                               target="_blank" class="btn btn-sm btn-secondary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center" style="padding: 40px;">
+                            <i class="fas fa-server" style="font-size: 32px; color: var(--text-muted); margin-bottom: 12px;"></i>
+                            <p style="color: var(--text-muted); margin: 0;">No servers configured</p>
+                            <a href="{% url 'admin:dashboard_jitsiserver_add' %}" target="_blank" class="btn btn-primary mt-4">
+                                <i class="fas fa-plus"></i> Add First Server
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- API Info -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-code"></i> API Endpoints</h3>
+    </div>
+    <div class="card-body">
+        <table style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>Endpoint</th>
+                    <th>Method</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>/api/stats/</code></td>
+                    <td><span class="badge badge-success">GET</span></td>
+                    <td>Get server overview and statistics</td>
+                </tr>
+                <tr>
+                    <td><code>/api/colibri/</code></td>
+                    <td><span class="badge badge-success">GET</span></td>
+                    <td>Get JVB Colibri statistics</td>
+                </tr>
+                <tr>
+                    <td><code>/api/token/</code></td>
+                    <td><span class="badge badge-warning">POST</span></td>
+                    <td>Generate JWT token for a meeting</td>
+                </tr>
+                <tr>
+                    <td><code>/api/recording/start/</code></td>
+                    <td><span class="badge badge-warning">POST</span></td>
+                    <td>Start recording for a conference</td>
+                </tr>
+                <tr>
+                    <td><code>/api/recording/stop/</code></td>
+                    <td><span class="badge badge-warning">POST</span></td>
+                    <td>Stop current recording</td>
+                </tr>
+                <tr>
+                    <td><code>/webhooks/</code></td>
+                    <td><span class="badge badge-warning">POST</span></td>
+                    <td>Webhook endpoint for Jitsi events</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Test Connection -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-plug"></i> Test Connection</h3>
+    </div>
+    <div class="card-body">
+        <button class="btn btn-primary" onclick="testConnection()">
+            <i class="fas fa-wifi"></i> Test Jitsi Server Connection
+        </button>
+        <div id="testResult" style="margin-top: 16px; display: none;">
+            <pre style="background: var(--bg-primary); padding: 16px; border-radius: var(--border-radius-sm); 
+                        overflow-x: auto; font-size: 12px;"></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media (max-width: 1024px) {
+        div[style*="grid-template-columns: 1fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function testConnection() {
+    const resultDiv = document.getElementById('testResult');
+    const pre = resultDiv.querySelector('pre');
+    
+    resultDiv.style.display = 'block';
+    pre.textContent = 'Testing connection...';
+    
+    try {
+        const response = await fetch('{% url "dashboard:api_stats" %}');
+        const data = await response.json();
+        pre.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+        pre.textContent = 'Error: ' + e.message;
+    }
+}
+</script>
+{% endblock %}

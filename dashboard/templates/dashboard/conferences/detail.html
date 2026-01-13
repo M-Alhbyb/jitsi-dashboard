@@ -1,0 +1,258 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}{{ conference.display_name|default:conference.room_name }} - Jitsi Control{% endblock %}
+{% block page_title %}Conference Details{% endblock %}
+
+{% block content %}
+<!-- Conference Header -->
+<div class="card mb-4">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">{{ conference.display_name|default:conference.room_name }}</h3>
+            <p style="margin: 4px 0 0; color: var(--text-muted); font-size: 13px;">
+                Room: {{ conference.room_name }}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if conference.status == 'active' or conference.status == 'scheduled' %}
+                <a href="{{ conference.meeting_url }}" target="_blank" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt"></i> Join Meeting
+                </a>
+            {% endif %}
+            <a href="{% url 'dashboard:conferences' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="stats-grid" style="margin-bottom: 0;">
+            <div class="stat-card">
+                <div class="stat-icon blue">
+                    <i class="fas fa-info-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Status</div>
+                    <div style="margin-top: 4px;">
+                        {% if conference.status == 'active' %}
+                            <span class="badge badge-success">Active</span>
+                        {% elif conference.status == 'ended' %}
+                            <span class="badge badge-info">Ended</span>
+                        {% else %}
+                            <span class="badge badge-warning">{{ conference.get_status_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Max Participants</div>
+                    <div class="stat-value">{{ conference.max_participants }}</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon orange">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Duration</div>
+                    <div class="stat-value">{{ conference.duration }} min</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Server</div>
+                    <div style="font-size: 14px; margin-top: 4px;">{{ conference.server.name }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Conference Details Info -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-info"></i> Details</h3>
+        </div>
+        <div class="card-body">
+            <table style="width: 100%;">
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted);">Created By</td>
+                    <td style="padding: 8px 0; text-align: right;">{{ conference.created_by.username|default:"Anonymous" }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted);">Started At</td>
+                    <td style="padding: 8px 0; text-align: right;">{{ conference.started_at|date:"M d, Y H:i"|default:"--" }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted);">Ended At</td>
+                    <td style="padding: 8px 0; text-align: right;">{{ conference.ended_at|date:"M d, Y H:i"|default:"--" }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted);">Password Protected</td>
+                    <td style="padding: 8px 0; text-align: right;">
+                        {% if conference.is_password_protected %}
+                            <span class="badge badge-warning">Yes</span>
+                        {% else %}
+                            <span class="badge badge-info">No</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted);">Lobby Enabled</td>
+                    <td style="padding: 8px 0; text-align: right;">
+                        {% if conference.has_lobby %}
+                            <span class="badge badge-warning">Yes</span>
+                        {% else %}
+                            <span class="badge badge-info">No</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: var(--text-muted);">Recorded</td>
+                    <td style="padding: 8px 0; text-align: right;">
+                        {% if conference.is_recorded %}
+                            <span class="badge badge-success">Yes</span>
+                        {% else %}
+                            <span class="badge badge-info">No</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-link"></i> Meeting Link</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Meeting URL</label>
+                <div class="d-flex gap-2">
+                    <input type="text" class="form-control" value="{{ conference.meeting_url }}" readonly id="meetingUrl">
+                    <button class="btn btn-secondary" onclick="copyUrl()">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Participants -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-users"></i> Participants
+            <small style="color: var(--text-muted);">({{ participants.count }})</small>
+        </h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                    <th>Left</th>
+                    <th>Duration</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in participants %}
+                <tr>
+                    <td>{{ p.name }}</td>
+                    <td>{{ p.email|default:"--" }}</td>
+                    <td>
+                        {% if p.is_moderator %}
+                            <span class="badge badge-warning">Moderator</span>
+                        {% else %}
+                            <span class="badge badge-info">Participant</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.joined_at|date:"H:i:s" }}</td>
+                    <td>{{ p.left_at|date:"H:i:s"|default:"--" }}</td>
+                    <td>{{ p.duration_minutes }} min</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center" style="padding: 40px; color: var(--text-muted);">
+                        No participants recorded
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Recordings -->
+{% if recordings %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-video"></i> Recordings</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Size</th>
+                    <th>Duration</th>
+                    <th>Started</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in recordings %}
+                <tr>
+                    <td>{{ rec.get_recording_type_display }}</td>
+                    <td>
+                        <span class="badge badge-{% if rec.status == 'completed' %}success{% elif rec.status == 'failed' %}danger{% else %}info{% endif %}">
+                            {{ rec.get_status_display }}
+                        </span>
+                    </td>
+                    <td>{{ rec.file_size_mb|floatformat:1 }} MB</td>
+                    <td>{{ rec.duration_seconds|default:0|floatformat:0 }}s</td>
+                    <td>{{ rec.started_at|date:"M d, H:i"|default:"--" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media (max-width: 768px) {
+        div[style*="grid-template-columns: 1fr 1fr"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyUrl() {
+    const input = document.getElementById('meetingUrl');
+    input.select();
+    document.execCommand('copy');
+    alert('Meeting URL copied to clipboard!');
+}
+</script>
+{% endblock %}

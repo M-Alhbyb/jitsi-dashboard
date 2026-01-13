@@ -1,0 +1,203 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Dashboard - Jitsi Control{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon blue">
+            <i class="fas fa-video"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Active Conferences</div>
+            <div class="stat-value" id="activeConferences">
+                {% if server_overview %}
+                    {{ server_overview.summary.active_conferences }}
+                {% else %}
+                    --
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon green">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Active Participants</div>
+            <div class="stat-value" id="activeParticipants">
+                {% if server_overview %}
+                    {{ server_overview.summary.active_participants }}
+                {% else %}
+                    --
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon orange">
+            <i class="fas fa-arrow-up"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Upload Bitrate</div>
+            <div class="stat-value" id="uploadBitrate">
+                {% if server_overview %}
+                    {{ server_overview.summary.upload_bitrate_kbps|floatformat:0 }} kbps
+                {% else %}
+                    --
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon purple">
+            <i class="fas fa-arrow-down"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Download Bitrate</div>
+            <div class="stat-value" id="downloadBitrate">
+                {% if server_overview %}
+                    {{ server_overview.summary.download_bitrate_kbps|floatformat:0 }} kbps
+                {% else %}
+                    --
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Server Components Status -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-server"></i> Server Components</h3>
+    </div>
+    <div class="card-body">
+        <div class="d-flex gap-4" style="flex-wrap: wrap;">
+            <div class="server-component">
+                <span class="status-dot {% if server_overview.components.jvb.healthy %}{% else %}offline{% endif %}"></span>
+                <span><strong>JVB</strong> (Video Bridge)</span>
+                {% if server_overview.components.jvb.healthy %}
+                    <span class="badge badge-success">Healthy</span>
+                {% else %}
+                    <span class="badge badge-danger">Offline</span>
+                {% endif %}
+            </div>
+            <div class="server-component">
+                <span class="status-dot {% if server_overview.components.jicofo.healthy %}{% else %}offline{% endif %}"></span>
+                <span><strong>Jicofo</strong> (Focus)</span>
+                {% if server_overview.components.jicofo.healthy %}
+                    <span class="badge badge-success">Healthy</span>
+                {% else %}
+                    <span class="badge badge-danger">Offline</span>
+                {% endif %}
+            </div>
+            <div class="server-component">
+                <span class="status-dot {% if server_overview.components.jibri.available %}{% else %}offline{% endif %}"></span>
+                <span><strong>Jibri</strong> (Recording)</span>
+                {% if server_overview.components.jibri.available %}
+                    <span class="badge badge-success">{{ server_overview.components.jibri.status }}</span>
+                {% else %}
+                    <span class="badge badge-warning">Unavailable</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions + Recent Conferences -->
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+    <!-- Quick Actions -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-bolt"></i> Quick Actions</h3>
+        </div>
+        <div class="card-body">
+            <a href="{% url 'dashboard:create_meeting' %}" class="btn btn-primary" style="width: 100%; margin-bottom: 12px;">
+                <i class="fas fa-plus"></i> Create Meeting
+            </a>
+            <a href="{% url 'dashboard:conferences' %}" class="btn btn-secondary" style="width: 100%; margin-bottom: 12px;">
+                <i class="fas fa-list"></i> View All Conferences
+            </a>
+            <a href="{% url 'dashboard:analytics' %}" class="btn btn-secondary" style="width: 100%;">
+                <i class="fas fa-chart-bar"></i> View Analytics
+            </a>
+        </div>
+    </div>
+    
+    <!-- Recent Conferences -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-history"></i> Recent Conferences</h3>
+            <a href="{% url 'dashboard:conferences' %}" class="btn btn-sm btn-secondary">View All</a>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Room Name</th>
+                        <th>Status</th>
+                        <th>Participants</th>
+                        <th>Duration</th>
+                        <th>Started</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for conf in recent_conferences %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'dashboard:conference_detail' conf.pk %}">
+                                {{ conf.display_name|default:conf.room_name }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if conf.status == 'active' %}
+                                <span class="badge badge-success">Active</span>
+                            {% elif conf.status == 'ended' %}
+                                <span class="badge badge-info">Ended</span>
+                            {% else %}
+                                <span class="badge badge-warning">{{ conf.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ conf.max_participants }}</td>
+                        <td>{{ conf.duration }} min</td>
+                        <td>{{ conf.started_at|date:"M d, H:i"|default:"--" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center" style="padding: 40px;">
+                            <i class="fas fa-video" style="font-size: 32px; color: var(--text-muted); margin-bottom: 12px;"></i>
+                            <p style="color: var(--text-muted); margin: 0;">No recent conferences</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .server-component {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 20px;
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-sm);
+    }
+    
+    @media (max-width: 1024px) {
+        div[style*="grid-template-columns: 1fr 2fr"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+{% endblock %}
