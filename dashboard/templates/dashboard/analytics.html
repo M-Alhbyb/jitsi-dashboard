@@ -1,188 +1,42 @@
 {% extends 'dashboard/base.html' %}
 
-{% block title %}Analytics - Jitsi Control{% endblock %}
+{% block title %}Analytics - Jitsi{% endblock %}
 {% block page_title %}Analytics{% endblock %}
 
 {% block content %}
-<!-- Time Range Selector -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="get" class="d-flex gap-4 align-center">
-            <label class="form-label" style="margin: 0;">Time Range:</label>
-            <select name="days" class="form-control" style="width: auto;" onchange="this.form.submit()">
-                <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 Days</option>
-                <option value="14" {% if days == 14 %}selected{% endif %}>Last 14 Days</option>
-                <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 Days</option>
-                <option value="60" {% if days == 60 %}selected{% endif %}>Last 60 Days</option>
-                <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 Days</option>
-            </select>
-        </form>
+<div class="stats">
+    <div class="stat-card">
+        <div class="label">Total Conferences</div>
+        <div class="value">{{ total_conferences|default:0 }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Total Participants</div>
+        <div class="value">{{ total_participants|default:0 }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Total Duration</div>
+        <div class="value">{{ total_duration|default:0 }} min</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Avg Participants/Meeting</div>
+        <div class="value">{{ avg_participants|floatformat:1|default:"0" }}</div>
     </div>
 </div>
 
-<!-- Stats Overview -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-icon blue">
-            <i class="fas fa-video"></i>
-        </div>
-        <div class="stat-content">
-            <div class="stat-label">Total Conferences</div>
-            <div class="stat-value">{{ total_conferences }}</div>
-            <div class="stat-change">Last {{ days }} days</div>
-        </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-icon green">
-            <i class="fas fa-users"></i>
-        </div>
-        <div class="stat-content">
-            <div class="stat-label">Total Participants</div>
-            <div class="stat-value">{{ total_participants }}</div>
-            <div class="stat-change">Last {{ days }} days</div>
-        </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-icon orange">
-            <i class="fas fa-clock"></i>
-        </div>
-        <div class="stat-content">
-            <div class="stat-label">Avg. Duration</div>
-            <div class="stat-value">{{ avg_duration_minutes }} min</div>
-            <div class="stat-change">Per conference</div>
-        </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-icon purple">
-            <i class="fas fa-users"></i>
-        </div>
-        <div class="stat-content">
-            <div class="stat-label">Peak Participants</div>
-            <div class="stat-value">{{ peak_participants }}</div>
-            <div class="stat-change">Maximum recorded</div>
-        </div>
-    </div>
-</div>
-
-<!-- Conference Trend Chart -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-chart-line"></i> Conference Trend</h3>
-    </div>
-    <div class="card-body">
-        <div id="chartContainer" style="height: 300px; display: flex; align-items: flex-end; gap: 4px; padding: 20px 0;">
-            <!-- Chart will be rendered here -->
-        </div>
-    </div>
-</div>
-
-<!-- Summary Cards -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+<div class="grid-2">
     <div class="card">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-calendar"></i> Daily Average</h3>
-        </div>
-        <div class="card-body text-center">
-            <div class="stat-value" style="font-size: 48px; color: var(--accent-primary);">
-                {{ total_conferences|divisibleby:days|default:"0" }}
-            </div>
-            <div style="color: var(--text-muted);">Conferences per day</div>
+        <div class="card-header">This Week</div>
+        <div class="card-body">
+            <p><strong>Conferences:</strong> {{ week_conferences|default:0 }}</p>
+            <p><strong>Participants:</strong> {{ week_participants|default:0 }}</p>
         </div>
     </div>
-    
     <div class="card">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-user-plus"></i> Avg. per Conference</h3>
-        </div>
-        <div class="card-body text-center">
-            {% if total_conferences > 0 %}
-                {% widthratio total_participants 1 total_conferences as avg_p %}
-                <div class="stat-value" style="font-size: 48px; color: var(--success);">
-                    {{ avg_p|default:"0" }}
-                </div>
-            {% else %}
-                <div class="stat-value" style="font-size: 48px; color: var(--success);">0</div>
-            {% endif %}
-            <div style="color: var(--text-muted);">Participants per conference</div>
+        <div class="card-header">This Month</div>
+        <div class="card-body">
+            <p><strong>Conferences:</strong> {{ month_conferences|default:0 }}</p>
+            <p><strong>Participants:</strong> {{ month_participants|default:0 }}</p>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-    .chart-bar {
-        background: var(--accent-gradient);
-        border-radius: 4px 4px 0 0;
-        min-width: 8px;
-        flex: 1;
-        position: relative;
-        transition: all 0.3s ease;
-    }
-    
-    .chart-bar:hover {
-        opacity: 0.8;
-    }
-    
-    .chart-bar::after {
-        content: attr(data-count);
-        position: absolute;
-        top: -20px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 10px;
-        color: var(--text-muted);
-        opacity: 0;
-        transition: opacity 0.2s;
-    }
-    
-    .chart-bar:hover::after {
-        opacity: 1;
-    }
-    
-    .chart-label {
-        position: absolute;
-        bottom: -20px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 9px;
-        color: var(--text-muted);
-        white-space: nowrap;
-    }
-</style>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    const dailyData = {{ daily_data|safe }};
-    const container = document.getElementById('chartContainer');
-    
-    if (dailyData && dailyData.length > 0) {
-        const maxCount = Math.max(...dailyData.map(d => d.count), 1);
-        
-        dailyData.forEach((day, index) => {
-            const height = (day.count / maxCount) * 100;
-            const bar = document.createElement('div');
-            bar.className = 'chart-bar';
-            bar.style.height = Math.max(height, 2) + '%';
-            bar.setAttribute('data-count', day.count);
-            bar.title = `${day.date}: ${day.count} conferences`;
-            
-            // Show label every few bars
-            if (index % Math.ceil(dailyData.length / 10) === 0) {
-                const label = document.createElement('span');
-                label.className = 'chart-label';
-                label.textContent = new Date(day.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
-                bar.appendChild(label);
-            }
-            
-            container.appendChild(bar);
-        });
-    } else {
-        container.innerHTML = '<p style="color: var(--text-muted); text-align: center; width: 100%;">No data for selected period</p>';
-    }
-</script>
 {% endblock %}

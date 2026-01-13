@@ -1,140 +1,33 @@
 {% extends 'dashboard/base.html' %}
 
-{% block title %}Create Meeting - Jitsi Control{% endblock %}
+{% block title %}Create Meeting - Jitsi{% endblock %}
 {% block page_title %}Create Meeting{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px;">
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-plus-circle"></i> New Meeting</h3>
-        </div>
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div class="form-group">
-                        <label class="form-label">Room Name *</label>
-                        <input type="text" name="room_name" class="form-control" 
-                               placeholder="e.g., team-standup" required>
-                        <small style="color: var(--text-muted); font-size: 12px;">
-                            Will be used in the meeting URL. Spaces become dashes.
-                        </small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Display Name</label>
-                        <input type="text" name="display_name" class="form-control" 
-                               placeholder="e.g., Daily Standup Meeting">
-                        <small style="color: var(--text-muted); font-size: 12px;">
-                            Human-friendly name shown in dashboard.
-                        </small>
-                    </div>
-                </div>
-                
-                <hr style="border-color: var(--border-color); margin: 24px 0;">
-                
-                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text-secondary);">
-                    <i class="fas fa-user"></i> Host Settings
-                </h4>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div class="form-group">
-                        <label class="form-label">Your Name</label>
-                        <input type="text" name="user_name" class="form-control" 
-                               value="Moderator" placeholder="Your display name">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Your Email</label>
-                        <input type="email" name="user_email" class="form-control" 
-                               placeholder="your@email.com">
-                    </div>
-                </div>
-                
-                <hr style="border-color: var(--border-color); margin: 24px 0;">
-                
-                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text-secondary);">
-                    <i class="fas fa-cog"></i> Room Options
-                </h4>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div class="form-group">
-                        <label class="form-label">Server</label>
-                        <select name="server" class="form-control">
-                            {% for server in servers %}
-                                <option value="{{ server.pk }}" {% if server.is_primary %}selected{% endif %}>
-                                    {{ server.name }} {% if server.is_primary %}(Primary){% endif %}
-                                </option>
-                            {% empty %}
-                                <option value="">No servers configured</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div></div>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div class="form-group">
-                        <div class="form-check">
-                            <input type="checkbox" name="enable_lobby" id="enableLobby" class="form-check-input">
-                            <label for="enableLobby">Enable Lobby</label>
-                        </div>
-                        <small style="color: var(--text-muted); font-size: 12px;">
-                            Participants wait for moderator approval to join.
-                        </small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <div class="form-check">
-                            <input type="checkbox" name="enable_password" id="enablePassword" 
-                                   class="form-check-input" onchange="togglePasswordField()">
-                            <label for="enablePassword">Password Protect</label>
-                        </div>
-                        <small style="color: var(--text-muted); font-size: 12px;">
-                            Require password to join the meeting.
-                        </small>
-                    </div>
-                </div>
-                
-                <div class="form-group" id="passwordField" style="display: none;">
-                    <label class="form-label">Meeting Password</label>
-                    <input type="text" name="password" class="form-control" 
-                           placeholder="Enter a password">
-                </div>
-                
-                <div style="margin-top: 32px; display: flex; gap: 12px;">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-video"></i> Create Meeting
-                    </button>
-                    <a href="{% url 'dashboard:conferences' %}" class="btn btn-secondary">
-                        Cancel
-                    </a>
-                </div>
-            </form>
-        </div>
+<div class="card" style="max-width: 600px;">
+    <div class="card-header">New Meeting</div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Room Name *</label>
+                <input type="text" name="room_name" class="form-control" placeholder="my-meeting" required>
+            </div>
+            <div class="form-group">
+                <label>Your Name *</label>
+                <input type="text" name="user_name" class="form-control" placeholder="John Doe" required>
+            </div>
+            <div class="form-group">
+                <label>Your Email</label>
+                <input type="email" name="user_email" class="form-control" placeholder="john@example.com">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_moderator" checked> Join as Moderator
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Create & Get Link</button>
+        </form>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-    @media (max-width: 768px) {
-        div[style*="grid-template-columns: 1fr 1fr"] {
-            grid-template-columns: 1fr !important;
-        }
-    }
-</style>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function togglePasswordField() {
-    const checkbox = document.getElementById('enablePassword');
-    const field = document.getElementById('passwordField');
-    field.style.display = checkbox.checked ? 'block' : 'none';
-}
-</script>
 {% endblock %}

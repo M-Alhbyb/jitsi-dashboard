@@ -1,120 +1,27 @@
 {% extends 'dashboard/base.html' %}
 
-{% block title %}Participants - Jitsi Control{% endblock %}
+{% block title %}Participants - Jitsi{% endblock %}
 {% block page_title %}Participants{% endblock %}
 
 {% block content %}
-<!-- Filters -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="get" class="d-flex gap-4" style="flex-wrap: wrap; align-items: flex-end;">
-            <div class="form-group mb-0" style="min-width: 200px;">
-                <label class="form-label">Conference</label>
-                <input type="text" name="conference" class="form-control" 
-                       placeholder="Conference ID" value="{{ request.GET.conference }}">
-            </div>
-            <div class="form-group mb-0">
-                <div class="form-check" style="padding-top: 30px;">
-                    <input type="checkbox" name="active" id="activeOnly" class="form-check-input"
-                           {% if request.GET.active %}checked{% endif %}>
-                    <label for="activeOnly">Active Only</label>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-filter"></i> Filter
-            </button>
-            <a href="{% url 'dashboard:participants' %}" class="btn btn-secondary">
-                <i class="fas fa-times"></i> Clear
-            </a>
-        </form>
-    </div>
-</div>
-
-<!-- Participants List -->
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title">
-            <i class="fas fa-users"></i> All Participants
-            {% if page_obj %}<small style="color: var(--text-muted);">({{ page_obj.paginator.count }} total)</small>{% endif %}
-        </h3>
-    </div>
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Conference</th>
-                    <th>Role</th>
-                    <th>Joined</th>
-                    <th>Left</th>
-                    <th>Duration</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in participants %}
-                <tr>
-                    <td>
-                        <strong>{{ p.name }}</strong>
-                        {% if p.email %}<br><small style="color: var(--text-muted);">{{ p.email }}</small>{% endif %}
-                    </td>
-                    <td>
-                        <a href="{% url 'dashboard:conference_detail' p.conference.pk %}">
-                            {{ p.conference.display_name|default:p.conference.room_name|truncatechars:30 }}
-                        </a>
-                    </td>
-                    <td>
-                        {% if p.is_moderator %}
-                            <span class="badge badge-warning">Moderator</span>
-                        {% else %}
-                            <span class="badge badge-info">Participant</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ p.joined_at|date:"M d, H:i" }}</td>
-                    <td>{{ p.left_at|date:"H:i"|default:"--" }}</td>
-                    <td>{{ p.duration_minutes }} min</td>
-                    <td>
-                        {% if p.left_at %}
-                            <span class="badge badge-info">Left</span>
-                        {% else %}
-                            <span class="badge badge-success">Active</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7">
-                        <div class="empty-state">
-                            <i class="fas fa-users"></i>
-                            <p>No participants found</p>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    
-    {% if page_obj and page_obj.has_other_pages %}
-    <div class="card-body" style="border-top: 1px solid var(--border-color);">
-        <div class="d-flex justify-between align-center">
-            <div>
-                Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
-            </div>
-            <div class="d-flex gap-2">
-                {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-secondary">
-                        <i class="fas fa-chevron-left"></i> Previous
-                    </a>
-                {% endif %}
-                {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-sm btn-secondary">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </a>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
+    <table>
+        <thead>
+            <tr><th>Name</th><th>Conference</th><th>Role</th><th>Joined</th><th>Duration</th></tr>
+        </thead>
+        <tbody>
+            {% for p in participants %}
+            <tr>
+                <td>{{ p.name }}</td>
+                <td><a href="{% url 'dashboard:conference_detail' p.conference.pk %}">{{ p.conference.room_name }}</a></td>
+                <td>{% if p.is_moderator %}<span class="badge badge-info">Moderator</span>{% else %}Participant{% endif %}</td>
+                <td>{{ p.joined_at|date:"M d, H:i" }}</td>
+                <td>{{ p.duration_minutes|default:"--" }} min</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align:center; color:#999; padding:40px;">No participants recorded yet</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock %}
