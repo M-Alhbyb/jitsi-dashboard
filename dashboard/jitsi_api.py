@@ -1,11 +1,11 @@
 """
 Jitsi API Integration Service
 
-This module provides a unified interface to interact with all Jitsi Meet APIs:
 - Colibri REST API (JVB statistics)
 - Jicofo REST API (health checks)
 - JWT Token Generation
 - Jibri Recording Control
+
 """
 
 import jwt
@@ -23,7 +23,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 @dataclass
 class JitsiServerConfig:
-    """Configuration for a Jitsi server instance"""
     base_url: str
     colibri_port: int = 8080
     jicofo_port: int = 8888
@@ -34,15 +33,6 @@ class JitsiServerConfig:
 
 
 class JitsiAPI:
-    """
-    Main API client for Jitsi Meet server interactions.
-    
-    This class provides methods to:
-    - Get server statistics and health status
-    - Generate JWT tokens for authenticated room access
-    - Control recordings via Jibri API
-    - Manage conferences and participants
-    """
     
     def __init__(self, config: JitsiServerConfig):
         self.config = config
@@ -52,14 +42,6 @@ class JitsiAPI:
     # ==================== SERVER STATISTICS ====================
     
     def get_colibri_stats(self) -> Dict[str, Any]:
-        """
-        Get Jitsi Videobridge (JVB) statistics from Colibri API.
-        
-        Returns:
-            Dict containing conference count, participant count, 
-            bitrates, and other JVB metrics.
-        """
-        # Colibri API uses HTTP, extract host from base_url
         host = self.config.base_url.replace("https://", "").replace("http://", "")
         url = f"http://{host}:{self.config.colibri_port}/colibri/stats"
         try:
@@ -77,13 +59,6 @@ class JitsiAPI:
             }
     
     def get_jicofo_health(self) -> Dict[str, Any]:
-        """
-        Check Jicofo service health status.
-        
-        Returns:
-            Dict with health status information.
-        """
-        # Jicofo API uses HTTP
         host = self.config.base_url.replace("https://", "").replace("http://", "")
         url = f"http://{host}:{self.config.jicofo_port}/about/health"
         try:
@@ -101,12 +76,6 @@ class JitsiAPI:
             }
     
     def get_jicofo_stats(self) -> Dict[str, Any]:
-        """
-        Get Jicofo statistics from its REST API.
-        
-        Returns:
-            Dict containing Jicofo metrics.
-        """
         host = self.config.base_url.replace("https://", "").replace("http://", "")
         url = f"http://{host}:{self.config.jicofo_port}/stats"
         try:
@@ -124,7 +93,7 @@ class JitsiAPI:
             }
     
     def _get_default_stats(self) -> Dict[str, Any]:
-        """Return default stats structure when API is unavailable."""
+        #Return default stats structure when API is unavailable.
         return {
             "conferences": 0,
             "participants": 0,
@@ -152,28 +121,12 @@ class JitsiAPI:
         expiry_hours: int = 24,
         features: Optional[Dict[str, bool]] = None
     ) -> str:
-        """
-        Generate a JWT token for authenticated room access.
-        
-        Args:
-            room_name: Name of the Jitsi room
-            user_name: Display name of the user
-            user_email: User's email address
-            is_moderator: Whether user should have moderator privileges
-            avatar_url: URL to user's avatar image
-            expiry_hours: Token validity in hours
-            features: Dict of enabled features (recording, streaming, etc.)
-            
-        Returns:
-            Signed JWT token string.
-        """
         if not self.config.app_secret:
             raise ValueError("app_secret is required for JWT generation")
         
         now = int(time.time())
         expiry = now + (expiry_hours * 3600)
         
-        # Default features
         default_features = {
             "livestreaming": True,
             "recording": True,
@@ -215,20 +168,6 @@ class JitsiAPI:
         use_jwt: bool = True,
         config_overrides: Optional[Dict[str, Any]] = None
     ) -> str:
-        """
-        Generate a complete meeting URL with optional JWT and config overrides.
-        
-        Args:
-            room_name: Name of the room
-            user_name: User's display name
-            user_email: User's email
-            is_moderator: Moderator status
-            use_jwt: Whether to include JWT token
-            config_overrides: Dict of Jitsi config overrides
-            
-        Returns:
-            Complete meeting URL string.
-        """
         # Clean room name (remove spaces, special chars)
         clean_room = room_name.replace(" ", "-").lower()
         url = f"{self.config.base_url}/{clean_room}"
@@ -257,12 +196,6 @@ class JitsiAPI:
     # ==================== RECORDING (JIBRI) ====================
     
     def get_jibri_health(self) -> Dict[str, Any]:
-        """
-        Check Jibri service health and availability.
-        
-        Returns:
-            Dict with Jibri health status.
-        """
         host = self.config.base_url.replace("https://", "").replace("http://", "")
         url = f"http://{host}:{self.config.jibri_port}/jibri/api/v1.0/health"
         try:
@@ -287,18 +220,8 @@ class JitsiAPI:
         room_name: str,
         mode: str = "file",  # "file", "stream", or "local"
         stream_url: str = ""
-    ) -> Dict[str, Any]:
-        """
-        Start recording or streaming for a room.
+         ) -> Dict[str, Any]:
         
-        Args:
-            room_name: Name of the room to record
-            mode: Recording mode (file, stream, local)
-            stream_url: RTMP URL for streaming mode
-            
-        Returns:
-            Dict with recording start result.
-        """
         url = f"{self.config.base_url}:{self.config.jibri_port}/jibri/api/v1.0/startService"
         
         payload = {
@@ -331,12 +254,6 @@ class JitsiAPI:
             }
     
     def stop_recording(self) -> Dict[str, Any]:
-        """
-        Stop the current recording session.
-        
-        Returns:
-            Dict with stop result.
-        """
         url = f"{self.config.base_url}:{self.config.jibri_port}/jibri/api/v1.0/stopService"
         try:
             response = self.session.post(url, timeout=30)
@@ -354,12 +271,6 @@ class JitsiAPI:
     # ==================== UTILITY METHODS ====================
     
     def get_server_overview(self) -> Dict[str, Any]:
-        """
-        Get a complete overview of the Jitsi server status.
-        
-        Returns:
-            Dict with all server metrics and health info.
-        """
         colibri = self.get_colibri_stats()
         jicofo_health = self.get_jicofo_health()
         jicofo_stats = self.get_jicofo_stats()
@@ -395,11 +306,6 @@ class JitsiAPI:
 
 # Singleton instance for the configured Jitsi server
 def get_jitsi_api() -> JitsiAPI:
-    """
-    Get the configured Jitsi API instance.
-    
-    Uses settings from Django settings.py or defaults.
-    """
     config = JitsiServerConfig(
         base_url=getattr(settings, 'JITSI_SERVER_URL', 'https://192.168.117.153'),
         colibri_port=getattr(settings, 'JITSI_COLIBRI_PORT', 8080),

@@ -5,24 +5,24 @@ app_name = 'dashboard'
 
 urlpatterns = [
     # Dashboard pages
-    path('', views.DashboardHomeView.as_view(), name='home'),
+    path('', views.dashboard_home, name='home'),
     
     # Conferences
-    path('conferences/', views.ConferenceListView.as_view(), name='conferences'),
-    path('conferences/<int:pk>/', views.ConferenceDetailView.as_view(), name='conference_detail'),
-    path('conferences/create/', views.CreateMeetingView.as_view(), name='create_meeting'),
+    path('conferences/', views.conference_list, name='conferences'),
+    path('conferences/<int:pk>/', views.conference_detail, name='conference_detail'),
+    path('conferences/create/', views.create_meeting, name='create_meeting'),
     
     # Participants
-    path('participants/', views.ParticipantListView.as_view(), name='participants'),
+    path('participants/', views.participant_list, name='participants'),
     
     # Recordings
-    path('recordings/', views.RecordingListView.as_view(), name='recordings'),
+    path('recordings/', views.recording_list, name='recordings'),
     
     # Analytics
-    path('analytics/', views.AnalyticsView.as_view(), name='analytics'),
+    path('analytics/', views.analytics, name='analytics'),
     
     # Settings
-    path('settings/', views.SettingsView.as_view(), name='settings'),
+    path('settings/', views.settings_view, name='settings'),
     
     # API endpoints
     path('api/stats/', views.api_server_stats, name='api_stats'),

@@ -4,14 +4,11 @@ from datetime import timedelta
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
-from django.views import View
-from django.views.generic import TemplateView, ListView, DetailView
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from django.utils.decorators import method_decorator
+from django.core.paginator import Paginator
 from django.db.models import Count, Sum, Avg
 from django.contrib import messages
 
@@ -26,103 +23,92 @@ logger = logging.getLogger(__name__)
 
 # ==================== DASHBOARD VIEWS ====================
 
-class DashboardHomeView(TemplateView):
+def dashboard_home(request):
     """Main dashboard overview page."""
-    template_name = 'dashboard/home.html'
+    context = {}
     
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # Get primary server stats
-        try:
-            api = get_jitsi_api()
-            server_overview = api.get_server_overview()
-            context['server_overview'] = server_overview
-            context['api_connected'] = True
-        except Exception as e:
-            logger.error(f"Failed to get server overview: {e}")
-            context['api_connected'] = False
-            context['api_error'] = str(e)
-        
-        # Get database stats
-        context['recent_conferences'] = Conference.objects.filter(
-            started_at__gte=timezone.now() - timedelta(days=7)
-        ).order_by('-started_at')[:10]
-        
-        context['active_conferences'] = Conference.objects.filter(
-            status='active'
-        ).count()
-        
-        context['total_participants_today'] = Participant.objects.filter(
-            joined_at__date=timezone.now().date()
-        ).count()
-        
-        # Get all servers
-        context['servers'] = JitsiServer.objects.filter(is_active=True)
-        
-        # Dashboard settings
-        context['settings'] = DashboardSettings.get_settings()
-        
-        return context
+    # Get primary server stats
+    try:
+        api = get_jitsi_api()
+        server_overview = api.get_server_overview()
+        context['server_overview'] = server_overview
+        context['api_connected'] = True
+    except Exception as e:
+        logger.error(f"Failed to get server overview: {e}")
+        context['api_connected'] = False
+        context['api_error'] = str(e)
+    
+    # Get database stats
+    context['recent_conferences'] = Conference.objects.filter(
+        started_at__gte=timezone.now() - timedelta(days=7)
+    ).order_by('-started_at')[:10]
+    
+    context['active_conferences'] = Conference.objects.filter(
+        status='active'
+    ).count()
+    
+    context['total_participants_today'] = Participant.objects.filter(
+        joined_at__date=timezone.now().date()
+    ).count()
+    
+    # Get all servers
+    context['servers'] = JitsiServer.objects.filter(is_active=True)
+    
+    # Dashboard settings
+    context['settings'] = DashboardSettings.get_settings()
+    
+    return render(request, 'dashboard/home.html', context)
 
 
-class ConferenceListView(ListView):
+def conference_list(request):
     """List all conferences with filtering."""
-    model = Conference
-    template_name = 'dashboard/conferences/list.html'
-    context_object_name = 'conferences'
-    paginate_by = 20
+    queryset = Conference.objects.select_related('server', 'created_by')
     
-    def get_queryset(self):
-        queryset = Conference.objects.select_related('server', 'created_by')
-        
-        # Filter by status
-        status = self.request.GET.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
-        
-        # Filter by server
-        server_id = self.request.GET.get('server')
-        if server_id:
-            queryset = queryset.filter(server_id=server_id)
-        
-        # Search
-        search = self.request.GET.get('q')
-        if search:
-            queryset = queryset.filter(room_name__icontains=search)
-        
-        return queryset.order_by('-started_at')
+    # Filter by status
+    status = request.GET.get('status')
+    if status:
+        queryset = queryset.filter(status=status)
     
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['servers'] = JitsiServer.objects.filter(is_active=True)
-        context['status_choices'] = Conference.STATUS_CHOICES
-        return context
+    # Filter by server
+    server_id = request.GET.get('server')
+    if server_id:
+        queryset = queryset.filter(server_id=server_id)
+    
+    # Search
+    search = request.GET.get('q')
+    if search:
+        queryset = queryset.filter(room_name__icontains=search)
+    
+    queryset = queryset.order_by('-started_at')
+    
+    # Pagination
+    paginator = Paginator(queryset, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'conferences': page_obj,
+        'page_obj': page_obj,
+        'servers': JitsiServer.objects.filter(is_active=True),
+        'status_choices': Conference.STATUS_CHOICES,
+    }
+    return render(request, 'dashboard/conferences/list.html', context)
 
 
-class ConferenceDetailView(DetailView):
+def conference_detail(request, pk):
     """View details of a specific conference."""
-    model = Conference
-    template_name = 'dashboard/conferences/detail.html'
-    context_object_name = 'conference'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['participants'] = self.object.participants.all()
-        context['recordings'] = self.object.recordings.all()
-        return context
+    conference = get_object_or_404(Conference, pk=pk)
+    context = {
+        'conference': conference,
+        'participants': conference.participants.all(),
+        'recordings': conference.recordings.all(),
+    }
+    return render(request, 'dashboard/conferences/detail.html', context)
 
 
-class CreateMeetingView(TemplateView):
+def create_meeting(request):
     """Create a new meeting with JWT."""
-    template_name = 'dashboard/conferences/create.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['servers'] = JitsiServer.objects.filter(is_active=True)
-        return context
-    
-    def post(self, request, *args, **kwargs):
+    if request.method == 'POST':
         room_name = request.POST.get('room_name', '').strip()
         display_name = request.POST.get('display_name', '')
         user_name = request.POST.get('user_name', 'Moderator')
@@ -188,105 +174,113 @@ class CreateMeetingView(TemplateView):
             logger.error(f"Failed to create meeting: {e}")
             messages.error(request, f"Failed to create meeting: {e}")
             return redirect('dashboard:create_meeting')
+    
+    # GET request
+    context = {
+        'servers': JitsiServer.objects.filter(is_active=True)
+    }
+    return render(request, 'dashboard/conferences/create.html', context)
 
 
-class ParticipantListView(ListView):
+def participant_list(request):
     """List all participants across conferences."""
-    model = Participant
-    template_name = 'dashboard/participants/list.html'
-    context_object_name = 'participants'
-    paginate_by = 50
+    queryset = Participant.objects.select_related('conference', 'user')
     
-    def get_queryset(self):
-        queryset = Participant.objects.select_related('conference', 'user')
-        
-        # Filter by conference
-        conf_id = self.request.GET.get('conference')
-        if conf_id:
-            queryset = queryset.filter(conference_id=conf_id)
-        
-        # Active only
-        if self.request.GET.get('active'):
-            queryset = queryset.filter(left_at__isnull=True)
-        
-        return queryset.order_by('-joined_at')
+    # Filter by conference
+    conf_id = request.GET.get('conference')
+    if conf_id:
+        queryset = queryset.filter(conference_id=conf_id)
+    
+    # Active only
+    if request.GET.get('active'):
+        queryset = queryset.filter(left_at__isnull=True)
+    
+    queryset = queryset.order_by('-joined_at')
+    
+    # Pagination
+    paginator = Paginator(queryset, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'participants': page_obj,
+        'page_obj': page_obj,
+    }
+    return render(request, 'dashboard/participants/list.html', context)
 
 
-class RecordingListView(ListView):
+def recording_list(request):
     """List all recordings."""
-    model = Recording
-    template_name = 'dashboard/recordings/list.html'
-    context_object_name = 'recordings'
-    paginate_by = 20
+    queryset = Recording.objects.select_related('conference')
     
-    def get_queryset(self):
-        queryset = Recording.objects.select_related('conference')
-        
-        status = self.request.GET.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
-        
-        return queryset.order_by('-created_at')
+    status = request.GET.get('status')
+    if status:
+        queryset = queryset.filter(status=status)
+    
+    queryset = queryset.order_by('-created_at')
+    
+    # Pagination
+    paginator = Paginator(queryset, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'recordings': page_obj,
+        'page_obj': page_obj,
+    }
+    return render(request, 'dashboard/recordings/list.html', context)
 
 
-class AnalyticsView(TemplateView):
+def analytics(request):
     """Analytics and reporting page."""
-    template_name = 'dashboard/analytics.html'
+    # Time range
+    days = int(request.GET.get('days', 30))
+    start_date = timezone.now() - timedelta(days=days)
     
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # Time range
-        days = int(self.request.GET.get('days', 30))
-        start_date = timezone.now() - timedelta(days=days)
-        
-        # Conference stats
-        conferences = Conference.objects.filter(started_at__gte=start_date)
-        context['total_conferences'] = conferences.count()
-        context['total_participants'] = Participant.objects.filter(
-            joined_at__gte=start_date
-        ).count()
-        
-        # Average meeting duration
-        completed = conferences.filter(status='ended', ended_at__isnull=False)
-        avg_duration = 0
-        if completed.exists():
-            durations = [c.duration for c in completed]
-            avg_duration = sum(durations) / len(durations)
-        context['avg_duration_minutes'] = round(avg_duration, 1)
-        
-        # Peak participants
-        max_participants = conferences.aggregate(
-            max_p=Sum('max_participants')
-        )['max_p'] or 0
-        context['peak_participants'] = max_participants
-        
-        # Daily conference counts for chart
-        daily_data = []
-        for i in range(days, -1, -1):
-            date = (timezone.now() - timedelta(days=i)).date()
-            count = conferences.filter(started_at__date=date).count()
-            daily_data.append({
-                'date': date.strftime('%Y-%m-%d'),
-                'count': count
-            })
-        context['daily_data'] = json.dumps(daily_data)
-        
-        context['days'] = days
-        return context
+    # Conference stats
+    conferences = Conference.objects.filter(started_at__gte=start_date)
+    total_conferences = conferences.count()
+    total_participants = Participant.objects.filter(
+        joined_at__gte=start_date
+    ).count()
+    
+    # Average meeting duration
+    completed = conferences.filter(status='ended', ended_at__isnull=False)
+    avg_duration = 0
+    if completed.exists():
+        durations = [c.duration for c in completed]
+        avg_duration = sum(durations) / len(durations)
+    avg_duration_minutes = round(avg_duration, 1)
+    
+    # Peak participants
+    max_participants = conferences.aggregate(
+        max_p=Sum('max_participants')
+    )['max_p'] or 0
+    
+    # Daily conference counts for chart
+    daily_data = []
+    for i in range(days, -1, -1):
+        date = (timezone.now() - timedelta(days=i)).date()
+        count = conferences.filter(started_at__date=date).count()
+        daily_data.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'count': count
+        })
+    
+    context = {
+        'total_conferences': total_conferences,
+        'total_participants': total_participants,
+        'avg_duration_minutes': avg_duration_minutes,
+        'peak_participants': max_participants,
+        'daily_data': json.dumps(daily_data),
+        'days': days,
+    }
+    return render(request, 'dashboard/analytics.html', context)
 
 
-class SettingsView(TemplateView):
+def settings_view(request):
     """Dashboard settings page."""
-    template_name = 'dashboard/settings.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['settings'] = DashboardSettings.get_settings()
-        context['servers'] = JitsiServer.objects.all()
-        return context
-    
-    def post(self, request, *args, **kwargs):
+    if request.method == 'POST':
         settings = DashboardSettings.get_settings()
         
         settings.refresh_interval_seconds = int(
@@ -301,6 +295,12 @@ class SettingsView(TemplateView):
         
         messages.success(request, "Settings saved successfully")
         return redirect('dashboard:settings')
+    
+    context = {
+        'settings': DashboardSettings.get_settings(),
+        'servers': JitsiServer.objects.all(),
+    }
+    return render(request, 'dashboard/settings.html', context)
 
 
 # ==================== API ENDPOINTS ====================
