@@ -10,6 +10,7 @@ urlpatterns = [
     # Conferences
     path('conferences/', views.conference_list, name='conferences'),
     path('conferences/<int:pk>/', views.conference_detail, name='conference_detail'),
+    path('conferences/delete/<int:pk>/', views.delete_conference, name='conference_delete'),
     path('conferences/create/', views.create_meeting, name='create_meeting'),
     
     # Participants

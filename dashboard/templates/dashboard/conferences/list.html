@@ -32,7 +32,10 @@
                 <td>{{ conf.max_participants }}</td>
                 <td>{{ conf.duration }} min</td>
                 <td>{{ conf.started_at|date:"M d, H:i"|default:"--" }}</td>
-                <td><a href="{% url 'dashboard:conference_detail' conf.pk %}" class="btn btn-secondary" style="padding:5px 10px; font-size:12px;">View</a></td>
+                <td>
+                    <a href="{% url 'dashboard:conference_delete' conf.pk %}" class="btn btn-secondary" style="padding:5px 10px; font-size:12px;">Delete</a>
+                    <a href="{% url 'dashboard:conference_detail' conf.pk %}" class="btn btn-secondary" style="padding:5px 10px; font-size:12px;">View</a>
+                </td>
             </tr>
             {% empty %}
             <tr><td colspan="6" style="text-align:center; color:#999; padding:40px;">No conferences yet. Create one to get started!</td></tr>

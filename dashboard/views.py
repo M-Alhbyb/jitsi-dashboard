@@ -16,7 +16,7 @@ from .models import (
     JitsiServer, Conference, Participant, 
     Recording, WebhookEvent, DashboardSettings
 )
-from .jitsi_api import JitsiAPI, JitsiServerConfig, get_jitsi_api
+from .jitsi_api import JitsiAPI, JitsiServerConfig, get_jitsi_api, terminate_meeting
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +181,13 @@ def create_meeting(request):
     }
     return render(request, 'dashboard/conferences/create.html', context)
 
+def delete_conference(request, pk):
+    conference = get_object_or_404(Conference, pk=pk)
+    terminate_meeting(conference.room_name)
+    conference.delete()
+    messages.success(request, "Conference deleted and live session terminated.")
+    return redirect('dashboard:conferences')
+    
 
 def participant_list(request):
     """List all participants across conferences."""

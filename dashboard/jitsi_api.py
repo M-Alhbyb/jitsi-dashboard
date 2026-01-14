@@ -192,7 +192,7 @@ class JitsiAPI:
             url += "?" + "&".join(params)
         
         return url
-    
+
     # ==================== RECORDING (JIBRI) ====================
     
     def get_jibri_health(self) -> Dict[str, Any]:
@@ -316,3 +316,25 @@ def get_jitsi_api() -> JitsiAPI:
         verify_ssl=getattr(settings, 'JITSI_VERIFY_SSL', False)
     )
     return JitsiAPI(config)
+
+
+import requests
+from requests.auth import HTTPBasicAuth
+
+def terminate_meeting(room_name):
+    muc_domain = "conference.192.168.117.153"
+    # 5280 is prosody port
+    url = f"http://192.168.117.153:5280/admin/rooms/{room_name.lower()}@{muc_domain}"
+    
+    auth = HTTPBasicAuth('admin@auth.192.168.117.153', 'pshpsh00')
+    
+    try:
+        response = requests.delete(url, auth=auth, timeout=5)
+        if response.status_code == 200:
+            return True
+        else:
+            print(f"Error: {response.status_code} - {response.text}")
+            return False
+    except Exception as e:
+        print(f"Connection failed: {e}")
+        return False
