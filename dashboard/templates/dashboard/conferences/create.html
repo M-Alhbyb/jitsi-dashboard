@@ -9,45 +9,58 @@
     <div class="card-body">
         <form method="post">
             {% csrf_token %}
+            
             <div class="form-group">
-                <label>Room Name *</label>
-                <input type="text" name="room_name" class="form-control" placeholder="my-meeting" required>
+                <label>Meeting Subject (Optional)</label>
+                <input type="text" name="subject" class="form-control" placeholder="e.g. Weekly Standup">
             </div>
+
             <div class="form-group">
-                <label>Display Name</label>
-                <input type="text" name="display_name" class="form-control" placeholder="Team Weekly Standup">
-                <small style="color: #999;">Human-friendly name (optional)</small>
+                <label>Your Display Name</label>
+                <input type="text" name="user_name" class="form-control" value="{{ request.user.username }}" required>
             </div>
+
             <div class="form-group">
-                <label>Your Name *</label>
-                <input type="text" name="user_name" class="form-control" placeholder="John Doe" required>
+                <label style="margin-bottom: 10px; display: block;">Access Type</label>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: flex; align-items: start; gap: 10px; cursor: pointer;">
+                            <input type="radio" name="access_mode" value="open" style="margin-top: 4px;">
+                            <div>
+                                <div style="font-weight: 500;">Open Access</div>
+                                <small style="color: #666;">Anyone with the link can join instantly.</small>
+                            </div>
+                        </label>
+                    </div>
+                    <div>
+                        <label style="display: flex; align-items: start; gap: 10px; cursor: pointer;">
+                            <input type="radio" name="access_mode" value="moderated" checked style="margin-top: 4px;">
+                            <div>
+                                <div style="font-weight: 500;">Moderated (Lobby)</div>
+                                <small style="color: #666;">Guests must be approved by you to join.</small>
+                            </div>
+                        </label>
+                    </div>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Your Email</label>
-                <input type="email" name="user_email" class="form-control" placeholder="john@example.com">
-            </div>
+
             {% if servers.count > 1 %}
             <div class="form-group">
                 <label>Server</label>
                 <select name="server" class="form-control">
                     {% for server in servers %}
-                    <option value="{{ server.pk }}" {% if server.is_primary %}selected{% endif %}>{{ server.name }}</option>
+                    <option value="{{ server.pk }}">{{ server.name }} ({{ server.base_url }})</option>
                     {% endfor %}
                 </select>
             </div>
             {% endif %}
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="enable_lobby"> Enable Lobby
-                </label>
-                <small style="color: #999; display: block;">Participants wait until moderator admits them</small>
+
+            <div style="margin-top: 20px;">
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Create Meeting</button>
+                <p style="text-align: center; font-size: 12px; color: #999; margin-top: 10px;">
+                    Room ID will be auto-generated (Google Meet style)
+                </p>
             </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="enable_password"> Password Protected
-                </label>
-            </div>
-            <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Create & Get Link</button>
         </form>
     </div>
 </div>

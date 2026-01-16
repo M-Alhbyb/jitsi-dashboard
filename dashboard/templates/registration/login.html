@@ -1,0 +1,35 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Login - Jitsi Dashboard{% endblock %}
+{% block page_title %}Login{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
+    <div class="card" style="width: 100%; max-width: 400px;">
+        <div class="card-header">Sign In</div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                {% if form.errors %}
+                <div class="alert alert-error" style="margin-bottom: 20px;">
+                    Invalid username or password.
+                </div>
+                {% endif %}
+                
+                <div class="form-group">
+                    <label for="id_username">Username</label>
+                    <input type="text" name="username" class="form-control" id="id_username" required autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_password">Password</label>
+                    <input type="password" name="password" class="form-control" id="id_password" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Sign In</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

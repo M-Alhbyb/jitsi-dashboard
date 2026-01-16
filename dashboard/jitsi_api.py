@@ -184,9 +184,11 @@ class JitsiAPI:
             params.append(f"jwt={token}")
         
         if config_overrides:
-            import json
-            config_str = json.dumps(config_overrides)
-            params.append(f"config.{config_str}")
+            for key, value in config_overrides.items():
+                # Value should be stringified boolean/int if needed, usually Jitsi accepts raw strings
+                if isinstance(value, bool):
+                     value = "true" if value else "false"
+                params.append(f"config.{key}={value}")
         
         if params:
             url += "?" + "&".join(params)

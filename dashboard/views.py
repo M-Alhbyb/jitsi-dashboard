@@ -106,21 +106,31 @@ def conference_detail(request, pk):
     return render(request, 'dashboard/conferences/detail.html', context)
 
 
+def generate_room_id():
+    """Generates a Google Meet-style room ID (e.g., abc-defg-hij)."""
+    import random
+    import string
+    chars = string.ascii_lowercase
+    part1 = ''.join(random.choices(chars, k=3))
+    part2 = ''.join(random.choices(chars, k=4))
+    part3 = ''.join(random.choices(chars, k=4))
+    return f"{part1}-{part2}-{part3}"
+
+@login_required
 def create_meeting(request):
     """Create a new meeting with JWT."""
     if request.method == 'POST':
-        room_name = request.POST.get('room_name', '').strip()
-        display_name = request.POST.get('display_name', '')
+        # New Flow: User inputs Subject only. Room ID is auto-generated.
+        subject = request.POST.get('subject', '').strip()
         user_name = request.POST.get('user_name', 'Moderator')
         user_email = request.POST.get('user_email', '')
         server_id = request.POST.get('server')
-        enable_lobby = request.POST.get('enable_lobby') == 'on'
-        enable_password = request.POST.get('enable_password') == 'on'
-        password = request.POST.get('password', '')
         
-        if not room_name:
-            messages.error(request, "Room name is required")
-            return redirect('dashboard:create_meeting')
+        # Access Mode: 'open' or 'moderated'
+        access_mode = request.POST.get('access_mode', 'moderated')
+        
+        # Room ID Generator
+        room_name = generate_room_id()
         
         try:
             # Get server
@@ -146,12 +156,11 @@ def create_meeting(request):
             # Create conference record
             conference = Conference.objects.create(
                 server=server,
-                room_name=room_name.replace(" ", "-").lower(),
-                display_name=display_name or room_name,
+                room_name=room_name,
+                display_name=subject or "Untitled Meeting",
                 status='scheduled',
-                created_by=request.user if request.user.is_authenticated else None,
-                has_lobby=enable_lobby,
-                is_password_protected=enable_password
+                created_by=request.user,
+                has_lobby=(access_mode == 'moderated')
             )
             
             # Add the creator as the first participant (moderator)
@@ -160,35 +169,40 @@ def create_meeting(request):
                 name=user_name,
                 email=user_email,
                 is_moderator=True,
-                user=request.user if request.user.is_authenticated else None
+                user=request.user
             )
             conference.total_participants = 1
             conference.max_participants = 1
             conference.save()
             
-            # Generate MODERATOR URL (with JWT containing moderator info)
+            # 1. Generate MODERATOR URL
+            # We enforce lobby if access_mode is 'moderated' via config override in URL
+            mod_config_overrides = {}
+            if access_mode == 'moderated':
+                mod_config_overrides['lobby.autoEnable'] = True
+            
             moderator_url = api.generate_meeting_url(
                 room_name=room_name,
                 user_name=user_name,
                 user_email=user_email,
                 is_moderator=True,
-                use_jwt=bool(server.app_secret)
+                use_jwt=bool(server.app_secret),
+                config_overrides=mod_config_overrides
             )
             
-            # Generate PARTICIPANT URL (with JWT but moderator=false)
-            participant_url = api.generate_meeting_url(
-                room_name=room_name,
-                user_name="Guest",  # Placeholder - they can change in meeting
-                user_email="",
-                is_moderator=False,  # NOT a moderator
-                use_jwt=bool(server.app_secret)
-            )
+            # 2. Generate GUEST URL
+            # Logic: If 'Open', pure anonymous link. If 'Moderated', still anonymous but they hit lobby.
+            # We do NOT sign a token for guests to ensure they are treated as anonymous/guests by Jitsi.
+            # This relies on Jitsi's anonymousdomain config.
+            
+            participant_url = f"{server.base_url}/{room_name}"
             
             context = {
                 'conference': conference,
-                'meeting_url': moderator_url,  # For the creator
-                'participant_url': participant_url,  # For sharing
-                'server': server
+                'meeting_url': moderator_url,    # For the creator (with JWT & Lobby config)
+                'participant_url': participant_url, # Clean URL for sharing
+                'server': server,
+                'access_mode': access_mode
             }
             return render(request, 'dashboard/conferences/created.html', context)
             
