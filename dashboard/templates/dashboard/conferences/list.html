@@ -33,6 +33,7 @@
                 <td>{{ conf.duration }} min</td>
                 <td>{{ conf.started_at|date:"M d, H:i"|default:"--" }}</td>
                 <td>
+                    <a href="{% url 'dashboard:conference_edit' conf.pk %}" class="btn btn-primary" style="padding:5px 10px; font-size:12px;">Edit</a>
                     <a href="{% url 'dashboard:conference_delete' conf.pk %}" class="btn btn-secondary" style="padding:5px 10px; font-size:12px;">Delete</a>
                     <a href="{% url 'dashboard:conference_detail' conf.pk %}" class="btn btn-secondary" style="padding:5px 10px; font-size:12px;">View</a>
                 </td>

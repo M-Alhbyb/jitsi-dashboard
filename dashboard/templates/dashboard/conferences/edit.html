@@ -1,0 +1,62 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Edit Conference - Jitsi{% endblock %}
+{% block page_title %}Edit Conference{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px;">
+    <div class="card-header">Edit: {{ conference.display_name|default:conference.room_name }}</div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Room Name *</label>
+                <input type="text" name="room_name" class="form-control" value="{{ conference.room_name }}" required>
+            </div>
+            <div class="form-group">
+                <label>Display Name</label>
+                <input type="text" name="display_name" class="form-control" value="{{ conference.display_name }}" placeholder="Human-friendly name">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select name="status" class="form-control">
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if conference.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Server</label>
+                <select name="server" class="form-control">
+                    {% for server in servers %}
+                    <option value="{{ server.pk }}" {% if conference.server.pk == server.pk %}selected{% endif %}>{{ server.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="has_lobby" {% if conference.has_lobby %}checked{% endif %}> Enable Lobby
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_password_protected" {% if conference.is_password_protected %}checked{% endif %}> Password Protected
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_recorded" {% if conference.is_recorded %}checked{% endif %}> Is Recorded
+                </label>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+                <a href="{% url 'dashboard:conference_detail' conference.pk %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div style="margin-top: 20px;">
+    <a href="{% url 'dashboard:conferences' %}" class="btn btn-secondary">← Back to Conferences</a>
+</div>
+{% endblock %}

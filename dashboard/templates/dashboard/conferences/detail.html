@@ -17,34 +17,67 @@
         <p><strong>Ended:</strong> {{ conference.ended_at|date:"M d, Y H:i"|default:"--" }}</p>
         <p><strong>Duration:</strong> {{ conference.duration }} minutes</p>
         <p><strong>Max Participants:</strong> {{ conference.max_participants }}</p>
+        <p><strong>Total Participants:</strong> {{ conference.total_participants }}</p>
         <p><strong>Recorded:</strong> {% if conference.is_recorded %}Yes{% else %}No{% endif %}</p>
         
-        {% if conference.status == 'active' %}
-        <div style="margin-top: 20px;">
+        <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+            {% if conference.status == 'active' %}
             <a href="{{ conference.meeting_url }}" target="_blank" class="btn btn-success"><i class="fas fa-external-link-alt"></i> Join Meeting</a>
+            {% endif %}
+            <a href="{% url 'dashboard:conference_edit' conference.pk %}" class="btn btn-primary"><i class="fas fa-edit"></i> Edit</a>
+            <a href="{% url 'dashboard:sync_participants' conference.pk %}" class="btn btn-secondary"><i class="fas fa-sync"></i> Sync Participants</a>
         </div>
-        {% endif %}
     </div>
 </div>
 
-{% if participants %}
 <div class="card" style="max-width: 800px; margin-top: 20px;">
-    <div class="card-header">Participants ({{ participants.count }})</div>
+    <div class="card-header">
+        Participants ({{ participants.count }})
+        <a href="{% url 'dashboard:sync_participants' conference.pk %}" style="float: right; font-size: 12px;">
+            <i class="fas fa-sync"></i> Refresh from Jitsi
+        </a>
+    </div>
     <table>
-        <thead><tr><th>Name</th><th>Role</th><th>Joined</th><th>Left</th></tr></thead>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Joined</th>
+                <th>Left</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
         <tbody>
             {% for p in participants %}
             <tr>
                 <td>{{ p.name }}</td>
                 <td>{% if p.is_moderator %}<span class="badge badge-info">Moderator</span>{% else %}Participant{% endif %}</td>
                 <td>{{ p.joined_at|date:"H:i" }}</td>
-                <td>{{ p.left_at|date:"H:i"|default:"--" }}</td>
+                <td>{{ p.left_at|date:"H:i"|default:"Active" }}</td>
+                <td>
+                    {% if not p.left_at and conference.status == 'active' %}
+                    <form action="{% url 'dashboard:kick_participant' conference.pk p.pk %}" method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px;" onclick="return confirm('Kick {{ p.name }} from the meeting?')">
+                            <i class="fas fa-user-slash"></i> Kick
+                        </button>
+                    </form>
+                    {% elif p.left_at %}
+                    <span style="color: #999; font-size: 11px;">{{ p.disconnect_reason|default:"Left" }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: #999; padding: 30px;">
+                    No participants yet. 
+                    <a href="{% url 'dashboard:sync_participants' conference.pk %}">Click to sync from Jitsi</a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
-{% endif %}
 
 <div style="margin-top: 20px;">
     <a href="{% url 'dashboard:conferences' %}" class="btn btn-secondary">← Back to Conferences</a>

@@ -12,9 +12,12 @@ urlpatterns = [
     path('conferences/<int:pk>/', views.conference_detail, name='conference_detail'),
     path('conferences/delete/<int:pk>/', views.delete_conference, name='conference_delete'),
     path('conferences/create/', views.create_meeting, name='create_meeting'),
+    path('conferences/<int:pk>/edit/', views.edit_conference, name='conference_edit'),
     
     # Participants
     path('participants/', views.participant_list, name='participants'),
+    path('conferences/<int:pk>/sync-participants/', views.sync_conference_participants, name='sync_participants'),
+    path('conferences/<int:conference_pk>/kick/<int:participant_pk>/', views.kick_participant_view, name='kick_participant'),
     
     # Recordings
     path('recordings/', views.recording_list, name='recordings'),
@@ -31,6 +34,7 @@ urlpatterns = [
     path('api/token/', views.api_generate_token, name='api_token'),
     path('api/recording/start/', views.api_start_recording, name='api_recording_start'),
     path('api/recording/stop/', views.api_stop_recording, name='api_recording_stop'),
+    path('api/reservation/', views.api_reservation, name='api_reservation'),
     
     # Webhooks
     path('webhooks/', views.webhook_handler, name='webhook_handler'),

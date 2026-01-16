@@ -14,7 +14,7 @@ from django.contrib import messages
 
 from .models import (
     JitsiServer, Conference, Participant, 
-    Recording, WebhookEvent, DashboardSettings
+    Recording, WebhookEvent, DashboardSettings, RevokedRoom
 )
 from .jitsi_api import JitsiAPI, JitsiServerConfig, get_jitsi_api, terminate_meeting
 
@@ -163,6 +163,18 @@ def create_meeting(request):
                 is_password_protected=enable_password
             )
             
+            # Add the creator as the first participant (moderator)
+            Participant.objects.create(
+                conference=conference,
+                name=user_name,
+                email=user_email,
+                is_moderator=True,
+                user=request.user if request.user.is_authenticated else None
+            )
+            conference.total_participants = 1
+            conference.max_participants = 1
+            conference.save()
+            
             context = {
                 'conference': conference,
                 'meeting_url': meeting_url,
@@ -183,10 +195,64 @@ def create_meeting(request):
 
 def delete_conference(request, pk):
     conference = get_object_or_404(Conference, pk=pk)
-    terminate_meeting(conference.room_name)
+    room_name = conference.room_name
+    
+    # Terminate active session
+    terminate_meeting(room_name)
+    
+    # Add room to blocklist to prevent access with existing tokens
+    RevokedRoom.revoke(room_name, reason='deleted')
+    
     conference.delete()
-    messages.success(request, "Conference deleted and live session terminated.")
+    messages.success(request, "Conference deleted, session terminated, and room access revoked.")
     return redirect('dashboard:conferences')
+
+
+def edit_conference(request, pk):
+    """Edit an existing conference."""
+    conference = get_object_or_404(Conference, pk=pk)
+    
+    if request.method == 'POST':
+        room_name = request.POST.get('room_name', '').strip()
+        display_name = request.POST.get('display_name', '')
+        status = request.POST.get('status', 'scheduled')
+        server_id = request.POST.get('server')
+        has_lobby = request.POST.get('has_lobby') == 'on'
+        is_password_protected = request.POST.get('is_password_protected') == 'on'
+        is_recorded = request.POST.get('is_recorded') == 'on'
+        
+        if not room_name:
+            messages.error(request, "Room name is required")
+            return redirect('dashboard:conference_edit', pk=pk)
+        
+        try:
+            if server_id:
+                server = JitsiServer.objects.get(pk=server_id)
+                conference.server = server
+            
+            conference.room_name = room_name.replace(" ", "-").lower()
+            conference.display_name = display_name or room_name
+            conference.status = status
+            conference.has_lobby = has_lobby
+            conference.is_password_protected = is_password_protected
+            conference.is_recorded = is_recorded
+            conference.save()
+            
+            messages.success(request, "Conference updated successfully")
+            return redirect('dashboard:conference_detail', pk=pk)
+            
+        except Exception as e:
+            logger.error(f"Failed to update conference: {e}")
+            messages.error(request, f"Failed to update conference: {e}")
+            return redirect('dashboard:conference_edit', pk=pk)
+    
+    # GET request
+    context = {
+        'conference': conference,
+        'servers': JitsiServer.objects.filter(is_active=True),
+        'status_choices': Conference.STATUS_CHOICES,
+    }
+    return render(request, 'dashboard/conferences/edit.html', context)
     
 
 def participant_list(request):
@@ -214,6 +280,96 @@ def participant_list(request):
         'page_obj': page_obj,
     }
     return render(request, 'dashboard/participants/list.html', context)
+
+
+def sync_conference_participants(request, pk):
+    """Sync participants from Jitsi server for a conference."""
+    from .jitsi_api import get_room_occupants
+    
+    conference = get_object_or_404(Conference, pk=pk)
+    result = get_room_occupants(conference.room_name)
+    
+    if result['success']:
+        occupants = result.get('occupants', [])
+        active_ids = []
+        synced = 0
+        
+        for occupant in occupants:
+            nick = occupant.get('nick', occupant.get('name', 'Unknown'))
+            jid = occupant.get('jid', '')
+            participant_id = jid or nick
+            active_ids.append(participant_id)
+            
+            # Create or update participant
+            participant, created = Participant.objects.update_or_create(
+                conference=conference,
+                participant_id=participant_id,
+                defaults={
+                    'name': nick,
+                    'is_moderator': occupant.get('role') == 'moderator',
+                    'left_at': None, # Mark as active if found
+                }
+            )
+            synced += 1
+        
+        # Mark participants NOT in the active list as left
+        # (Only if they were previously active)
+        Participant.objects.filter(
+            conference=conference,
+            left_at__isnull=True
+        ).exclude(
+            participant_id__in=active_ids
+        ).update(
+            left_at=timezone.now(),
+            disconnect_reason='Disconnected (Sync)'
+        )
+        
+        # Update conference stats
+        num_active = len(occupants)
+        conference.max_participants = max(conference.max_participants, num_active)
+        conference.total_participants = conference.participants.count()
+        
+        if num_active > 0:
+            if conference.status != 'active':
+                conference.status = 'active'
+                if not conference.started_at:
+                    conference.started_at = timezone.now()
+        else:
+            # If no one is left and it was active, maybe mark as ended?
+            # We'll stick to manual end or wait for actual end event.
+            pass
+            
+        conference.save()
+        
+        if num_active > 0:
+            messages.success(request, f"Synced {num_active} active participants from Jitsi.")
+        else:
+            messages.info(request, "No active participants found in this meeting.")
+    else:
+        messages.warning(request, f"Could not sync: {result.get('error', 'Unknown error')}")
+    
+    return redirect('dashboard:conference_detail', pk=pk)
+
+
+def kick_participant_view(request, conference_pk, participant_pk):
+    """Kick a participant from a conference."""
+    from .jitsi_api import kick_participant
+    
+    conference = get_object_or_404(Conference, pk=conference_pk)
+    participant = get_object_or_404(Participant, pk=participant_pk, conference=conference)
+    
+    if request.method == 'POST':
+        result = kick_participant(conference.room_name, participant.name)
+        
+        if result['success']:
+            participant.left_at = timezone.now()
+            participant.disconnect_reason = 'kicked'
+            participant.save()
+            messages.success(request, f"Kicked {participant.name} from the meeting")
+        else:
+            messages.error(request, f"Could not kick: {result.get('error', 'Unknown error')}")
+    
+    return redirect('dashboard:conference_detail', pk=conference_pk)
 
 
 def recording_list(request):
@@ -405,6 +561,149 @@ def api_stop_recording(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def api_check_room_access(request):
+    """
+    Check if a room is accessible (not revoked/deleted).
+    This endpoint can be called by Jitsi/Prosody to validate room access.
+    
+    GET/POST with room_name parameter.
+    Returns: {"allowed": true/false, "room_name": "...", "reason": "..."}
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            room_name = data.get('room_name', '') or data.get('room', '')
+        except json.JSONDecodeError:
+            room_name = request.POST.get('room_name', '')
+    else:
+        room_name = request.GET.get('room_name', '') or request.GET.get('room', '')
+    
+    if not room_name:
+        return JsonResponse({
+            'allowed': False,
+            'error': 'room_name is required'
+        }, status=400)
+    
+    room_name = room_name.lower()
+    is_revoked = RevokedRoom.is_revoked(room_name)
+    
+    if is_revoked:
+        return JsonResponse({
+            'allowed': False,
+            'room_name': room_name,
+            'reason': 'Room has been deleted/revoked'
+        })
+    
+    return JsonResponse({
+        'allowed': True,
+        'room_name': room_name
+    })
+
+
+# ==================== JICOFO RESERVATION API ====================
+# Configure Jicofo to use: org.jitsi.jicofo.RESERVATION_URL=http://YOUR_IP:8000/api/reservation/
+
+@csrf_exempt
+@require_http_methods(["GET", "POST", "DELETE"])
+def api_reservation(request):
+    """
+    Jicofo Reservation API.
+    
+    Jicofo calls this endpoint to check/create/delete room reservations.
+    - GET: Check if room exists and is allowed
+    - POST: Create/reserve a room (when conference starts)
+    - DELETE: Delete reservation (when conference ends)
+    
+    Query param: name=ROOM_NAME
+    
+    Returns:
+    - 200: Room is allowed (with JSON data)
+    - 404: Room is not allowed / deleted
+    - 409: Conflict (room already exists for POST)
+    """
+    room_name = request.GET.get('name', '') or request.POST.get('name', '')
+    
+    if not room_name:
+        # Try to get from request body for POST
+        if request.method == 'POST':
+            try:
+                data = json.loads(request.body) if request.body else {}
+                room_name = data.get('name', '')
+            except json.JSONDecodeError:
+                pass
+    
+    if not room_name:
+        return JsonResponse({'error': 'Room name is required'}, status=400)
+    
+    room_name = room_name.lower()
+    
+    # Check if room is revoked/deleted
+    if RevokedRoom.is_revoked(room_name):
+        logger.info(f"Reservation denied for revoked room: {room_name}")
+        return JsonResponse({
+            'error': 'Room has been deleted',
+            'message': 'This meeting has been deleted and cannot be joined'
+        }, status=404)
+    
+    if request.method == 'GET':
+        # Check if room reservation exists
+        conference = Conference.objects.filter(room_name=room_name).first()
+        
+        if conference:
+            return JsonResponse({
+                'id': conference.id,
+                'name': room_name,
+                'mail_owner': conference.created_by.email if conference.created_by else '',
+                'start_time': conference.started_at.isoformat() if conference.started_at else '',
+                'duration': 0  # 0 = no limit
+            })
+        else:
+            # Room not in our database - you can either:
+            # 1. Return 404 to require pre-registration (strict mode)
+            # 2. Return 200 to allow any room (permissive mode)
+            # Using strict mode - only allow rooms created via dashboard
+            return JsonResponse({
+                'error': 'Room not found',
+                'message': 'This room has not been created. Please create it from the dashboard.'
+            }, status=404)
+    
+    elif request.method == 'POST':
+        # Jicofo is trying to create a reservation (conference is starting)
+        conference = Conference.objects.filter(room_name=room_name).first()
+        
+        if conference:
+            # Update existing conference to active
+            conference.status = 'active'
+            conference.started_at = timezone.now()
+            conference.save()
+            
+            return JsonResponse({
+                'id': conference.id,
+                'name': room_name,
+                'mail_owner': conference.created_by.email if conference.created_by else '',
+                'start_time': conference.started_at.isoformat() if conference.started_at else '',
+                'duration': 0
+            })
+        else:
+            # Room doesn't exist in our database - deny creation
+            return JsonResponse({
+                'error': 'Room not found',
+                'message': 'This room must be created from the dashboard first'
+            }, status=404)
+    
+    elif request.method == 'DELETE':
+        # Jicofo is deleting reservation (conference ended)
+        Conference.objects.filter(room_name=room_name).update(
+            status='ended',
+            ended_at=timezone.now()
+        )
+        return HttpResponse(status=200)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 
 # ==================== WEBHOOK HANDLER ====================

@@ -275,3 +275,35 @@ class DashboardSettings(models.Model):
     
     def __str__(self):
         return "Dashboard Settings"
+
+
+class RevokedRoom(models.Model):
+    """
+    Model to track revoked/deleted room names.
+    Used to prevent access with old JWT tokens after a conference is deleted.
+    """
+    room_name = models.CharField(max_length=255, unique=True, db_index=True)
+    revoked_at = models.DateTimeField(auto_now_add=True)
+    reason = models.CharField(max_length=100, default='deleted')
+    
+    class Meta:
+        ordering = ['-revoked_at']
+        verbose_name = "Revoked Room"
+        verbose_name_plural = "Revoked Rooms"
+    
+    def __str__(self):
+        return f"{self.room_name} (revoked at {self.revoked_at})"
+    
+    @classmethod
+    def is_revoked(cls, room_name):
+        """Check if a room name is in the blocklist."""
+        return cls.objects.filter(room_name=room_name.lower()).exists()
+    
+    @classmethod
+    def revoke(cls, room_name, reason='deleted'):
+        """Add a room to the blocklist."""
+        obj, created = cls.objects.get_or_create(
+            room_name=room_name.lower(),
+            defaults={'reason': reason}
+        )
+        return obj

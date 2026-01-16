@@ -338,3 +338,70 @@ def terminate_meeting(room_name):
     except Exception as e:
         print(f"Connection failed: {e}")
         return False
+
+
+def get_room_occupants(room_name):
+    """Get list of occupants in a MUC room via custom Prosody HTTP admin."""
+    muc_domain = "conference.192.168.117.153"
+    room_jid = f"{room_name.lower()}@{muc_domain}"
+    url = f"http://192.168.117.153:5280/muc_admin/{room_jid}"
+    
+    auth = HTTPBasicAuth('admin@auth.192.168.117.153', 'pshpsh00')
+    
+    try:
+        response = requests.get(url, auth=auth, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                'success': True,
+                'occupants': data.get('occupants', []),
+                'count': len(data.get('occupants', [])),
+                'active': True,
+            }
+        elif response.status_code == 404:
+            return {
+                'success': True,
+                'occupants': [],
+                'count': 0,
+                'active': False,
+                'message': 'Room is not currently active'
+            }
+        else:
+            return {
+                'success': False,
+                'error': f"HTTP {response.status_code}: {response.text}",
+                'occupants': []
+            }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'occupants': []
+        }
+
+
+def kick_participant(room_name, participant_nick, reason="Kicked by moderator"):
+    """Kick a participant from a MUC room via custom Prosody HTTP admin."""
+    muc_domain = "conference.192.168.117.153"
+    room_jid = f"{room_name.lower()}@{muc_domain}"
+    url = f"http://192.168.117.153:5280/muc_admin/{room_jid}/kick/{participant_nick}"
+    
+    auth = HTTPBasicAuth('admin@auth.192.168.117.153', 'pshpsh00')
+    
+    try:
+        response = requests.post(url, auth=auth, json={'reason': reason}, timeout=5)
+        if response.status_code == 200 or response.status_code == 204:
+            return {
+                'success': True,
+                'message': f"Kicked {participant_nick} from {room_name}"
+            }
+        else:
+            return {
+                'success': False,
+                'error': f"HTTP {response.status_code}: {response.text}"
+            }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
