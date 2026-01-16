@@ -318,15 +318,13 @@ def get_jitsi_api() -> JitsiAPI:
     return JitsiAPI(config)
 
 
-import requests
 from requests.auth import HTTPBasicAuth
 
 def terminate_meeting(room_name):
-    muc_domain = "conference.192.168.117.153"
-    # 5280 is prosody port
-    url = f"http://192.168.117.153:5280/admin/rooms/{room_name.lower()}@{muc_domain}"
+    muc_domain = f"conference.{settings.PROSODY_HOST}"
+    url = f"http://{settings.PROSODY_HOST}:{settings.PROSODY_HTTP_PORT}/admin/rooms/{room_name.lower()}@{muc_domain}"
     
-    auth = HTTPBasicAuth('admin@auth.192.168.117.153', 'pshpsh00')
+    auth = HTTPBasicAuth(settings.PROSODY_ADMIN_USER, settings.PROSODY_ADMIN_PASSWORD)
     
     try:
         response = requests.delete(url, auth=auth, timeout=5)
@@ -342,11 +340,11 @@ def terminate_meeting(room_name):
 
 def get_room_occupants(room_name):
     """Get list of occupants in a MUC room via custom Prosody HTTP admin."""
-    muc_domain = "conference.192.168.117.153"
+    muc_domain = f"conference.{settings.PROSODY_HOST}"
     room_jid = f"{room_name.lower()}@{muc_domain}"
-    url = f"http://192.168.117.153:5280/muc_admin/{room_jid}"
+    url = f"http://{settings.PROSODY_HOST}:{settings.PROSODY_HTTP_PORT}/muc_admin/{room_jid}"
     
-    auth = HTTPBasicAuth('admin@auth.192.168.117.153', 'pshpsh00')
+    auth = HTTPBasicAuth(settings.PROSODY_ADMIN_USER, settings.PROSODY_ADMIN_PASSWORD)
     
     try:
         response = requests.get(url, auth=auth, timeout=5)
@@ -382,11 +380,11 @@ def get_room_occupants(room_name):
 
 def kick_participant(room_name, participant_nick, reason="Kicked by moderator"):
     """Kick a participant from a MUC room via custom Prosody HTTP admin."""
-    muc_domain = "conference.192.168.117.153"
+    muc_domain = f"conference.{settings.PROSODY_HOST}"
     room_jid = f"{room_name.lower()}@{muc_domain}"
-    url = f"http://192.168.117.153:5280/muc_admin/{room_jid}/kick/{participant_nick}"
+    url = f"http://{settings.PROSODY_HOST}:{settings.PROSODY_HTTP_PORT}/muc_admin/{room_jid}/kick/{participant_nick}"
     
-    auth = HTTPBasicAuth('admin@auth.192.168.117.153', 'pshpsh00')
+    auth = HTTPBasicAuth(settings.PROSODY_ADMIN_USER, settings.PROSODY_ADMIN_PASSWORD)
     
     try:
         response = requests.post(url, auth=auth, json={'reason': reason}, timeout=5)

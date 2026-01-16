@@ -14,6 +14,11 @@
                 <input type="text" name="room_name" class="form-control" placeholder="my-meeting" required>
             </div>
             <div class="form-group">
+                <label>Display Name</label>
+                <input type="text" name="display_name" class="form-control" placeholder="Team Weekly Standup">
+                <small style="color: #999;">Human-friendly name (optional)</small>
+            </div>
+            <div class="form-group">
                 <label>Your Name *</label>
                 <input type="text" name="user_name" class="form-control" placeholder="John Doe" required>
             </div>
@@ -21,9 +26,25 @@
                 <label>Your Email</label>
                 <input type="email" name="user_email" class="form-control" placeholder="john@example.com">
             </div>
+            {% if servers.count > 1 %}
+            <div class="form-group">
+                <label>Server</label>
+                <select name="server" class="form-control">
+                    {% for server in servers %}
+                    <option value="{{ server.pk }}" {% if server.is_primary %}selected{% endif %}>{{ server.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
             <div class="form-group">
                 <label>
-                    <input type="checkbox" name="is_moderator" checked> Join as Moderator
+                    <input type="checkbox" name="enable_lobby"> Enable Lobby
+                </label>
+                <small style="color: #999; display: block;">Participants wait until moderator admits them</small>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="enable_password"> Password Protected
                 </label>
             </div>
             <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Create & Get Link</button>

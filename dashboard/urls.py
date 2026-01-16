@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/recording/start/', views.api_start_recording, name='api_recording_start'),
     path('api/recording/stop/', views.api_stop_recording, name='api_recording_stop'),
     path('api/reservation/', views.api_reservation, name='api_reservation'),
+    path('api/check-room/', views.api_check_room_access, name='api_check_room'),
     
     # Webhooks
     path('webhooks/', views.webhook_handler, name='webhook_handler'),

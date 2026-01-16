@@ -7,16 +7,23 @@
 <div class="card" style="max-width: 700px;">
     <div class="card-header"><i class="fas fa-check-circle" style="color: #27ae60;"></i> Meeting Ready</div>
     <div class="card-body">
-        <p style="margin-bottom: 20px;"><strong>Room:</strong> {{ room_name }}</p>
+        <p style="margin-bottom: 20px;"><strong>Room:</strong> {{ conference.room_name }}</p>
         
         <div class="form-group">
-            <label>Meeting URL:</label>
-            <input type="text" class="form-control" value="{{ meeting_url }}" id="meetingUrl" readonly style="background:#f9f9f9;">
+            <label><strong>🔗 Share this link with participants:</strong></label>
+            <input type="text" class="form-control" value="{{ participant_url }}" id="participantUrl" readonly style="background:#f0fff0; border-color: #27ae60;">
+            <small style="color: #27ae60;">Participants will enter their own name when joining</small>
         </div>
         
-        <div style="display: flex; gap: 10px;">
-            <button class="btn btn-secondary" onclick="navigator.clipboard.writeText(document.getElementById('meetingUrl').value); this.textContent='Copied!';"><i class="fas fa-copy"></i> Copy Link</button>
-            <a href="{{ meeting_url }}" target="_blank" class="btn btn-success"><i class="fas fa-external-link-alt"></i> Join Meeting</a>
+        <div class="form-group" style="margin-top: 15px;">
+            <label>Your Moderator Link (private):</label>
+            <input type="text" class="form-control" value="{{ meeting_url }}" id="moderatorUrl" readonly style="background:#f9f9f9; font-size: 12px;">
+            <small style="color: #999;">Use this to join as moderator with your name</small>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn btn-success" onclick="navigator.clipboard.writeText(document.getElementById('participantUrl').value); this.innerHTML='<i class=\'fas fa-check\'></i> Copied!';"><i class="fas fa-copy"></i> Copy Invite Link</button>
+            <a href="{{ meeting_url }}" target="_blank" class="btn btn-primary"><i class="fas fa-external-link-alt"></i> Join as Moderator</a>
             <a href="{% url 'dashboard:create_meeting' %}" class="btn btn-secondary"><i class="fas fa-plus"></i> Create Another</a>
         </div>
     </div>

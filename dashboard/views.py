@@ -143,15 +143,6 @@ def create_meeting(request):
             )
             api = JitsiAPI(config)
             
-            # Generate meeting URL
-            meeting_url = api.generate_meeting_url(
-                room_name=room_name,
-                user_name=user_name,
-                user_email=user_email,
-                is_moderator=True,
-                use_jwt=bool(server.app_secret)
-            )
-            
             # Create conference record
             conference = Conference.objects.create(
                 server=server,
@@ -175,9 +166,28 @@ def create_meeting(request):
             conference.max_participants = 1
             conference.save()
             
+            # Generate MODERATOR URL (with JWT containing moderator info)
+            moderator_url = api.generate_meeting_url(
+                room_name=room_name,
+                user_name=user_name,
+                user_email=user_email,
+                is_moderator=True,
+                use_jwt=bool(server.app_secret)
+            )
+            
+            # Generate PARTICIPANT URL (with JWT but moderator=false)
+            participant_url = api.generate_meeting_url(
+                room_name=room_name,
+                user_name="Guest",  # Placeholder - they can change in meeting
+                user_email="",
+                is_moderator=False,  # NOT a moderator
+                use_jwt=bool(server.app_secret)
+            )
+            
             context = {
                 'conference': conference,
-                'meeting_url': meeting_url,
+                'meeting_url': moderator_url,  # For the creator
+                'participant_url': participant_url,  # For sharing
                 'server': server
             }
             return render(request, 'dashboard/conferences/created.html', context)
@@ -193,6 +203,7 @@ def create_meeting(request):
     }
     return render(request, 'dashboard/conferences/create.html', context)
 
+@require_http_methods(["POST"])
 def delete_conference(request, pk):
     conference = get_object_or_404(Conference, pk=pk)
     room_name = conference.room_name

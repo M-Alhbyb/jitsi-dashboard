@@ -10,20 +10,24 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-wh-8)d_btacui-+4o&#vxqcc7+-z+1w4w6e-!hetx!2%9p%ar1'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-dev-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = ['*', '192.168.117.152', '192.168.117.153', 'localhost', '127.0.0.1']
 
@@ -124,11 +128,17 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Jitsi Configuration
-JITSI_SERVER_URL = 'https://192.168.117.153'
+JITSI_SERVER_URL = os.getenv('JITSI_SERVER_URL', 'https://192.168.117.153')
 JITSI_COLIBRI_PORT = 8080
 JITSI_JICOFO_PORT = 8888
 JITSI_JIBRI_PORT = 2222
-JITSI_APP_ID = '1234'
-JITSI_APP_SECRET = '1234'  # Set your JWT secret here
+JITSI_APP_ID = os.getenv('JITSI_APP_ID', '1234')
+JITSI_APP_SECRET = os.getenv('JITSI_APP_SECRET', '')
 JITSI_VERIFY_SSL = False
+
+# Prosody Admin Configuration (for participant management)
+PROSODY_HOST = os.getenv('PROSODY_HOST', '192.168.117.153')
+PROSODY_HTTP_PORT = int(os.getenv('PROSODY_HTTP_PORT', '5280'))
+PROSODY_ADMIN_USER = os.getenv('PROSODY_ADMIN_USER', '')
+PROSODY_ADMIN_PASSWORD = os.getenv('PROSODY_ADMIN_PASSWORD', '')
 
